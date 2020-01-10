@@ -19,6 +19,7 @@ iarduino_RTC time(RTC_DS1307);
 int onTime = ON_TIME; 
 byte currentHour, currentMinutes, nextMinutes;
 byte numbersToDisplay[4];   //0 - десятки часов, 1 - единица часов, 2 - десятки минут, 3 - единицы минут
+bool setTimeFlag = false;
 
 
 void restoreIndicators();   //функция, реализующая антиотравление катодов индикаторов
@@ -48,11 +49,15 @@ void loop()
   time.gettime();
   currentHour = time.Hours;
   currentMinutes = time.minutes;
-
-  if (currentMinutes == nextMinutes)
+  setTimeFlag = digitalRead(SET_TIME_PIN);
+  
+  if (currentMinutes == nextMinutes && !setTimeFlag)
   {
     restoreIndicators();
-    nextMinutes++;
+    if (++nextMinutes > 59)
+    {
+      nextMinutes = 0;
+    }
   }
   
   if ( (currentHour >= NIGHT_START && currentHour <= 23) || (currentHour >= 0 && currentHour < NIGHT_END) )
@@ -64,7 +69,7 @@ void loop()
     onTime = ON_TIME;
   }
   
-  if (digitalRead(SET_TIME_PIN))
+  if (setTimeFlag)
   {
     if (digitalRead(SET_MINUTES_PIN))
     {
