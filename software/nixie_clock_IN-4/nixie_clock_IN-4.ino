@@ -1,7 +1,7 @@
 #include <iarduino_RTC.h>
 
 #define ON_TIME 2200        //время горения одного индикатора, микросекунды 
-#define RESTORE_TIME 220    //время горения индикатора во время обхода в режиме антиотравления, микросекунды
+#define RESTORE_TIME 1000    //время горения индикатора во время обхода в режиме антиотравления, микросекунды
 #define PERIOD_TIME 3000    //период одного индикатора
 
 #define NIGHT_START 22      //часы начала ночного режима
@@ -17,10 +17,9 @@ const byte anodePins[] = {6, 7, 8, 9};
 iarduino_RTC time(RTC_DS1307);    
 
 int onTime = ON_TIME; 
-byte currentHour = 0;
-byte currentMinutes = 0;
+byte currentHour, currentMinutes, nextMinutes;
 byte numbersToDisplay[4];   //0 - десятки часов, 1 - единица часов, 2 - десятки минут, 3 - единицы минут
-bool setTimeFlag = false, setHourFlag = false, setMinutesFlag = false, restoreFlag = false;
+
 
 void restoreIndicators();   //функция, реализующая антиотравление катодов индикаторов
 void getNumbersToDisplay();
@@ -30,8 +29,10 @@ void setup()
 {
   delay(300);
   time.begin();
-  currentHour = 0;
-  currentMinutes = 0;
+  time.gettime();
+  currentMinutes = time.minutes;
+  currentHour = time.Hours;
+  nextMinutes = currentMinutes + 1;
   for (byte i = 2; i < 10; i++)
   {
     pinMode(i, OUTPUT);
@@ -47,17 +48,13 @@ void loop()
   time.gettime();
   currentHour = time.Hours;
   currentMinutes = time.minutes;
+
+  if (currentMinutes == nextMinutes)
+  {
+    restoreIndicators();
+    nextMinutes++;
+  }
   
-  if (currentMinutes == 0 && restoreFlag)
-  {
-    restoreIndicators();
-    restoreFlag = !restoreFlag;
-  }
-  else if (currentMinutes == 30 && !restoreFlag)
-  {
-    restoreIndicators();
-    restoreFlag = !restoreFlag;
-  }
   if ( (currentHour >= NIGHT_START && currentHour <= 23) || (currentHour >= 0 && currentHour < NIGHT_END) )
   {
     onTime = ON_TIME / 5;
@@ -67,28 +64,24 @@ void loop()
     onTime = ON_TIME;
   }
   
-  
-  setTimeFlag = digitalRead(SET_TIME_PIN);
-  
-  if (setTimeFlag)
+  if (digitalRead(SET_TIME_PIN))
   {
-    setMinutesFlag = digitalRead(SET_MINUTES_PIN);
-    if (setMinutesFlag)
+    if (digitalRead(SET_MINUTES_PIN))
     {
       if (++currentMinutes > 59)
       {
         currentMinutes = 0;
       }
     }
-    setHourFlag = digitalRead(SET_HOUR_PIN);
-    if (setHourFlag)
+
+    if (digitalRead(SET_HOUR_PIN))
     {
       if (++currentHour > 23)
       {
         currentHour = 0;
       }
     }
-    time.settime(0, currentMinutes, currentHour);
+    time.settime(-1, currentMinutes, currentHour);
   }
   
   getNumbersToDisplay();
